@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agendaku — Tandas Digitales</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --card: #1a1a24;
+      --border: #2a2a3a;
+      --accent: #f0c14b;
+      --accent2: #e07b39;
+      --green: #4ecca3;
+      --red: #e05c5c;
+      --text: #e8e8f0;
+      --muted: #7a7a9a;
+      --radius: 16px;
+    }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Noise texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+      letter-spacing: -0.04em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-dot {
+      width: 10px; height: 10px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.85); }
+    }
+
+    .status-badge {
+      font-size: 0.7rem;
+      padding: 4px 12px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .status-badge.active {
+      border-color: var(--green);
+      color: var(--green);
+      background: rgba(78,204,163,0.08);
+    }
+
+    /* Layout */
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+      display: grid;
+      gap: 32px;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 40px 0 20px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2.2rem, 6vw, 4rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #f0c14b 0%, #e07b39 50%, #e05c5c 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .hero p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    /* Grid layouts */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+    @media (max-width: 700px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* Form elements */
+    label {
+      display: block;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(240,193,75,0.12);
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0a0a0f;
+    }
+    .btn-primary:hover { background: #f7d070; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(240,193,75,0.25); }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--red);
+      border: 1px solid rgba(224,92,92,0.3);
+    }
+    .btn-danger:hover { background: rgba(224,92,92,0.1); }
+
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+    .btn-full { width: 100%; }
+
+    /* Stat boxes */
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* Participant tags */
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+    .tag {
+      padding: 5px 12px;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tag.aportado { border-color: var(--green); color: var(--green); background: rgba(78,204,163,0.08); }
+    .tag.pendiente { border-color: var(--accent2); color: var(--accent2); background: rgba(224,123,57,0.08); }
+    .tag.beneficiario { border-color: var(--accent); color: var(--accent); background: rgba(240,193,75,0.1); }
+
+    /* Turno list */
+    .turno-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .turno-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: border-color 0.2s;
+    }
+
+    .turno-item.current { border-color: var(--accent); background: rgba(240,193,75,0.06); }
+
+    .turno-num {
+      width: 28px; height: 28px;
+      background: var(--border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .turno-item.current .turno-num {
+      background: var(--accent);
+      color: #0a0a0f;
+    }
+
+    .turno-name { flex: 1; font-size: 0.85rem; }
+
+    .turno-badge {
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 100px;
+    }
+
+    .turno-badge.mes { background: rgba(240,193,75,0.15); color: var(--accent); }
+    .turno-badge.done { background: rgba(78,204,163,0.1); color: var(--green); }
+
+    /* Alert / toast */
+    .alert {
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      margin-top: 14px;
+      display: none;
+    }
+
+    .alert.show { display: block; animation: fadeUp 0.3s ease; }
+    .alert.success { background: rgba(78,204,163,0.1); border: 1px solid rgba(78,204,163,0.3); color: var(--green); }
+    .alert.error { background: rgba(224,92,92,0.1); border: 1px solid rgba(224,92,92,0.3); color: var(--red); }
+    .alert.info { background: rgba(240,193,75,0.08); border: 1px solid rgba(240,193,75,0.25); color: var(--accent); }
+
+    /* Historial */
+    .historial-item {
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+
+    .historial-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .historial-mes {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .historial-monto {
+      color: var(--accent);
+      font-weight: 500;
+      font-size: 0.85rem;
+    }
+
+    .historial-beneficiario {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* Section divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 8px 0;
+    }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+
+    .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .empty p { font-size: 0.82rem; line-height: 1.7; }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card:nth-child(1) { animation-delay: 0.05s; }
+    .card:nth-child(2) { animation-delay: 0.1s; }
+    .card:nth-child(3) { animation-delay: 0.15s; }
+    .card:nth-child(4) { animation-delay: 0.2s; }
+
+    /* Section hidden */
+    .section-hidden { display: none; }
+
+    /* Loading spinner */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #0a0a0f;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+    .spinner.show { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Aporte select */
+    select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a7a9a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+    }
+
+    select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240,193,75,0.12); }
+    select option { background: var(--surface); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Agendaku
+  </div>
+  <span class="status-badge" id="headerStatus">sin tanda</span>
+</header>
+
+<main>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Agendaku</h1>
+    <p>Organiza, sortea y controla tu tanda de forma transparente</p>
+  </div>
+
+  <!-- CREAR TANDA -->
+  <div class="card" id="seccionCrear">
+    <div class="card-title">Crear nueva tanda</div>
+
+    <div class="form-group">
+      <label>Descripción (opcional)</label>
+      <input type="text" id="descripcion" placeholder="Ej: Tanda familiar enero 2025" />
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Monto por turno ($)</label>
+        <input type="number" id="monto" placeholder="500" min="1" />
+      </div>
+      <div class="form-group">
+        <label>Participantes (separados por coma)</label>
+        <input type="text" id="participantes" placeholder="Ana, Luis, María, Carlos" />
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="crearTanda()">
+      <span class="spinner" id="spinnerCrear"></span>
+      🎲 Sortear turnos y crear tanda
+    </button>
+
+    <div class="alert" id="alertCrear"></div>
+  </div>
+
+  <!-- DASHBOARD TANDA ACTIVA -->
+  <div id="seccionDashboard" class="section-hidden">
+
+    <!-- Stats -->
+    <div class="grid-3" id="statsContainer">
+      <div class="stat">
+        <div class="stat-value" id="statMes">—</div>
+        <div class="stat-label">Mes actual</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statMonto">—</div>
+        <div class="stat-label">Premio del mes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statPendientes">—</div>
+        <div class="stat-label">Pendientes de aporte</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+
+      <!-- Beneficiario del mes + aportes -->
+      <div class="card">
+        <div class="card-title">Mes actual</div>
+
+        <div class="form-group">
+          <label>Beneficiario este mes</label>
+          <div class="tag beneficiario" id="tagBeneficiario" style="display:inline-flex">—</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="form-group" style="margin-top:16px">
+          <label>Han aportado</label>
+          <div class="tags" id="tagsAportados">
+            <span class="tag">—</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Pendientes</label>
+          <div class="tags" id="tagsPendientes">
+            <span class="tag">—</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Registrar aporte -->
+        <div style="margin-top:16px">
+          <div class="card-title">Registrar aporte</div>
+          <div class="form-group">
+            <label>Participante</label>
+            <select id="selectAportante">
+              <option value="">— selecciona —</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="registrarAporte()">
+            <span class="spinner" id="spinnerAporte"></span>
+            ✅ Confirmar aporte
+          </button>
+          <div class="alert" id="alertAporte"></div>
+        </div>
+      </div>
+
+      <!-- Orden de turnos -->
+      <div class="card">
+        <div class="card-title">Orden de turnos</div>
+        <div class="turno-list" id="turnoList">
+          <div class="empty"><p>Cargando...</p></div>
+        </div>
+
+        <div class="divider" style="margin-top:16px"></div>
+
+        <button class="btn btn-danger btn-full" style="margin-top:16px" onclick="eliminarTanda()">
+          🗑 Eliminar tanda
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Resumen / Historial -->
+    <div class="card">
+      <div class="card-title">Historial de ciclos</div>
+      <div id="historialContainer">
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          <p>Aquí aparecerá el historial mes por mes<br>conforme se completen los aportes.</p>
+        </div>
+      </div>
+      <div class="alert" id="alertResumen"></div>
+    </div>
+
+  </div>
+
+  <!-- TANDA COMPLETADA -->
+  <div id="seccionCompletada" class="section-hidden">
+    <div class="card" style="text-align:center; padding:48px 28px;">
+      <div style="font-size:3rem; margin-bottom:16px;">🏁</div>
+      <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.5rem; margin-bottom:8px;">¡Tanda completada!</div>
+      <p style="color:var(--muted); font-size:0.85rem; margin-bottom:24px;">Todos los participantes recibieron su turno exitosamente.</p>
+      <button class="btn btn-primary" onclick="eliminarTanda()">Iniciar nueva tanda</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const API = '';  // mismo origen; cambia a tu URL de Vercel al desplegar
+
+  // ─── Estado ───────────────────────────────────────────────────────────────
+  let tandaActual = null;
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    cargarEstado();
+  });
+
+  async function cargarEstado() {
+    try {
+      const res = await fetch(`${API}/api/tanda`);
+      if (res.status === 404) {
+        mostrarSeccion('crear');
+        return;
+      }
+      const data = await res.json();
+      tandaActual = data.tanda;
+      renderDashboard(data);
+      cargarHistorial();
+    } catch (e) {
+      mostrarSeccion('crear');
+    }
+  }
+
+  // ─── Crear tanda ──────────────────────────────────────────────────────────
+  async function crearTanda() {
+    const descripcion = document.getElementById('descripcion').value.trim();
+    const monto = document.getElementById('monto').value;
+    const participantesRaw = document.getElementById('participantes').value;
+
+    if (!monto || !participantesRaw) {
+      showAlert('alertCrear', 'error', 'Completa el monto y los participantes.');
+      return;
+    }
+
+    const participantes = participantesRaw.split(',').map(p => p.trim()).filter(Boolean);
+    if (participantes.length < 2) {
+      showAlert('alertCrear', 'error', 'Ingresa al menos 2 participantes separados por coma.');
+      return;
+    }
+
+    toggleSpinner('spinnerCrear', true);
+
+    try {
+      const res = await fetch(`${API}/api/tanda`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantes, montoPorTurno: Number(monto), descripcion }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showAlert('alertCrear', 'error', data.error);
+        return;
+      }
+
+      tandaActual = data.tanda;
+      showAlert('alertCrear', 'success', '¡Tanda creada! Los turnos fueron sorteados aleatoriamente.');
+      setTimeout(() => { cargarEstado(); }, 1000);
+
+    } catch (e) {
+      showAlert('alertCrear', 'error', 'No se pudo conectar con la API.');
+    } finally {
+      toggleSpinner('spinnerCrear', false);
+    }
+  }
+
+  // ─── Registrar aporte ─────────────────────────────────────────────────────
+  async function registrarAporte() {
+    const nombre = document.getElementById('selectAportante').value;
+    if (!nombre) {
+      showAlert('alertAporte', 'error', 'Selecciona un participante.');
+      return;
+    }
+
+    toggleSpinner('spinnerAporte', true);
+
+    try {
+      const res = await fetch(`${API}/api/tanda/aporte`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showAlert('alertAporte', 'error', data.error);
+        return;
+      }
+
+      let msg = data.mensaje;
+      if (data.entrega) msg += '\n' + data.entrega;
+      if (data.recordatorio) msg += '\n' + data.recordatorio;
+
+      showAlert('alertAporte', 'success', msg);
+      setTimeout(() => { cargarEstado(); }, 1200);
+
+    } catch (e) {
+      showAlert('alertAporte', 'error', 'Error al registrar aporte.');
+    } finally {
+      toggleSpinner('spinnerAporte', false);
+    }
+  }
+
+  // ─── Eliminar tanda ───────────────────────────────────────────────────────
+  async function eliminarTanda() {
+    if (!confirm('¿Seguro que quieres eliminar la tanda? Esta acción no se puede deshacer.')) return;
+
+    await fetch(`${API}/api/tanda`, { method: 'DELETE' });
+    tandaActual = null;
+    document.getElementById('descripcion').value = '';
+    document.getElementById('monto').value = '';
+    document.getElementById('participantes').value = '';
+    mostrarSeccion('crear');
+  }
+
+  // ─── Cargar historial ─────────────────────────────────────────────────────
+  async function cargarHistorial() {
+    try {
+      const res = await fetch(`${API}/api/tanda/resumen`);
+      const data = await res.json();
+      renderHistorial(data.historialMeses || []);
+    } catch (e) {}
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  function renderDashboard(data) {
+    const tanda = data.tanda;
+    const resumen = data.resumenMesActual;
+
+    if (tanda.estado === 'completada') {
+      mostrarSeccion('completada');
+      cargarHistorial();
+      return;
+    }
+
+    mostrarSeccion('dashboard');
+
+    // Stats
+    document.getElementById('statMes').textContent = `${tanda.mesActual} / ${tanda.duracionMeses}`;
+    document.getElementById('statMonto').textContent = `$${tanda.totalAcumulado}`;
+    document.getElementById('statPendientes').textContent = resumen.pendienteDeAportar.length;
+
+    // Badge header
+    const badge = document.getElementById('headerStatus');
+    badge.textContent = 'tanda activa';
+    badge.className = 'status-badge active';
+
+    // Beneficiario
+    document.getElementById('tagBeneficiario').textContent = `🏆 ${resumen.beneficiario}`;
+
+    // Tags aportados
+    const tagsAp = document.getElementById('tagsAportados');
+    tagsAp.innerHTML = resumen.aportaronEsMes.length
+      ? resumen.aportaronEsMes.map(n => `<span class="tag aportado">✓ ${n}</span>`).join('')
+      : '<span class="tag">Nadie aún</span>';
+
+    // Tags pendientes
+    const tagsPen = document.getElementById('tagsPendientes');
+    tagsPen.innerHTML = resumen.pendienteDeAportar.length
+      ? resumen.pendienteDeAportar.map(n => `<span class="tag pendiente">⏳ ${n}</span>`).join('')
+      : '<span class="tag aportado">¡Todos aportaron!</span>';
+
+    // Select aportante (solo pendientes)
+    const select = document.getElementById('selectAportante');
+    select.innerHTML = '<option value="">— selecciona —</option>';
+    resumen.pendienteDeAportar.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      opt.textContent = n;
+      select.appendChild(opt);
+    });
+
+    // Turno list
+    const turnoList = document.getElementById('turnoList');
+    turnoList.innerHTML = tanda.participantes
+      .sort((a, b) => a.turno - b.turno)
+      .map(p => {
+        const isCurrent = p.turno === tanda.mesActual;
+        const isDone = p.turno < tanda.mesActual;
+        return `
+          <div class="turno-item ${isCurrent ? 'current' : ''}">
+            <div class="turno-num">${p.turno}</div>
+            <div class="turno-name">${p.nombre}</div>
+            ${isCurrent ? '<span class="turno-badge mes">Este mes</span>' : ''}
+            ${isDone ? '<span class="turno-badge done">✓ Recibió</span>' : ''}
+          </div>`;
+      }).join('');
+  }
+
+  function renderHistorial(historial) {
+    const container = document.getElementById('historialContainer');
+    if (!historial.length) {
+      container.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          <p>Aquí aparecerá el historial mes por mes<br>conforme se completen los aportes.</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = historial.map(h => `
+      <div class="historial-item">
+        <div class="historial-header">
+          <span class="historial-mes">Mes ${h.mes}</span>
+          <span class="historial-monto">$${h.montoEntregado}</span>
+        </div>
+        <div class="historial-beneficiario">🏆 Beneficiario: <strong style="color:var(--text)">${h.beneficiario}</strong> — ${new Date(h.fechaEntrega).toLocaleDateString('es-ES', {day:'2-digit', month:'short', year:'numeric'})}</div>
+      </div>
+    `).join('');
+  }
+
+  // ─── Utils ────────────────────────────────────────────────────────────────
+  function mostrarSeccion(seccion) {
+    document.getElementById('seccionCrear').style.display = seccion === 'crear' ? 'block' : 'none';
+    document.getElementById('seccionDashboard').style.display = seccion === 'dashboard' ? 'block' : 'none';
+    document.getElementById('seccionCompletada').style.display = seccion === 'completada' ? 'block' : 'none';
+
+    if (seccion === 'crear') {
+      const badge = document.getElementById('headerStatus');
+      badge.textContent = 'sin tanda';
+      badge.className = 'status-badge';
+    }
+  }
+
+  function showAlert(id, type, msg) {
+    const el = document.getElementById(id);
+    el.className = `alert ${type} show`;
+    el.textContent = msg;
+    setTimeout(() => { el.className = 'alert'; }, 5000);
+  }
+
+  function toggleSpinner(id, show) {
+    document.getElementById(id).className = show ? 'spinner show' : 'spinner';
+  }
+</script>
+
+</body>
+</html>
